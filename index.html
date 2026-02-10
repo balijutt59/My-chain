@@ -1,279 +1,407 @@
-‎<!DOCTYPE html>
-‎<html lang="en">
-‎<head>
-‎    <meta charset="UTF-8">
-‎    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-‎    <title>Last Chain | Ultimate Web3</title>
-‎    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-‎    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-‎    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-‎    <style>
-‎        :root { --primary: #00ff00; --bg: #000; --card: #0a0a0a; --blur-bg: rgba(0,0,0,0.6); }
-‎        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-‎        body { background: var(--bg); color: #fff; overflow-x: hidden; }
-‎        .hidden { display: none !important; }
-‎
-‎        /* Sidebar & Overlay */
-‎        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--blur-bg); backdrop-filter: blur(8px); display: none; z-index: 1050; opacity: 0; transition: 0.3s; }
-‎        #overlay.active { display: block; opacity: 1; }
-‎        .sidebar { position: fixed; left: -280px; width: 280px; height: 100vh; background: #050505; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1100; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; }
-‎        .sidebar.active { left: 0; box-shadow: 10px 0 50px rgba(0,255,0,0.1); }
-‎        .menu-item { padding: 20px 30px; cursor: pointer; color: #666; font-weight: 600; transition: 0.3s; }
-‎        .menu-item:hover, .active-tab { color: var(--primary); background: rgba(0,255,0,0.05); }
-‎        .logout-btn { margin-top: auto; padding: 25px; color: #ff4444; border-top: 1px solid #111; cursor: pointer; font-size: 14px; }
-‎
-‎        /* Header */
-‎        header { display: flex; align-items: center; padding: 15px 20px; border-bottom: 1px solid #1a1a1a; background: rgba(0,0,0,0.9); position: sticky; top: 0; z-index: 1000; }
-‎        #page-title { font-family: 'Orbitron'; font-size: 14px; margin-left: 20px; color: #888; }
-‎        
-‎        .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-‎        
-‎        /* Point + Wallet Group */
-‎        .wallet-box { display: flex; align-items: center; background: #111; border: 1px solid #222; border-radius: 12px; padding: 4px; gap: 8px; position: relative; }
-‎        .points-display { padding: 0 10px; font-family: 'Orbitron'; font-size: 12px; color: var(--primary); font-weight: bold; border-right: 1px solid #222; }
-‎        .wallet-btn { background: #fff; color: #000; padding: 6px 12px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; font-size: 11px; }
-‎        .wallet-btn.connected { background: transparent; color: #fff; }
-‎        
-‎        .disconnect-dropdown { position: absolute; top: 45px; right: 0; background: #111; border: 1px solid #222; border-radius: 10px; width: 150px; display: none; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-‎        .disconnect-dropdown button { width: 100%; padding: 12px; background: none; border: none; color: #ff4444; cursor: pointer; font-weight: bold; font-size: 12px; }
-‎
-‎        /* Dashboard UI - Theme & Shining Boxes */
-‎        .main-content { padding: 20px; max-width: 1000px; margin: 0 auto; transition: 0.3s; }
-‎        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
-‎        .stat-card { background: var(--card); border: 1px solid #1a1a1a; padding: 20px; border-radius: 15px; text-align: center; position: relative; overflow: hidden; }
-‎        
-‎        /* Original Shining Effect */
-‎        .stat-card::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent, rgba(255,255,255,0.03), transparent); transform: rotate(45deg); animation: shine 4s infinite; }
-‎        @keyframes shine { 0% { left: -100%; } 100% { left: 100%; } }
-‎
-‎        .stat-card h2 { font-family: 'Orbitron'; font-size: 20px; color: var(--primary); margin-top: 5px; }
-‎        .stat-card p { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
-‎
-‎        .progress-box { background: var(--card); padding: 20px; border-radius: 15px; border: 1px solid #1a1a1a; margin-bottom: 25px; }
-‎        .bar-bg { background: #111; height: 10px; border-radius: 10px; margin-top: 10px; overflow: hidden; }
-‎        .bar-fill { height: 100%; background: var(--primary); width: 0%; box-shadow: 0 0 15px var(--primary); transition: 1.5s ease; }
-‎
-‎        .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-‎        .tall-box { background: var(--card); border: 1px solid #1a1a1a; border-radius: 15px; padding: 20px; min-height: 400px; }
-‎        .tall-box h4 { font-family: 'Orbitron'; font-size: 12px; color: #fff; margin-bottom: 20px; border-bottom: 1px solid #1a1a1a; padding-bottom: 10px; }
-‎
-‎        .mission-card { background: var(--card); border: 1px solid #1a1a1a; padding: 25px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-‎        .btn-claim { background: var(--primary); color: #000; padding: 12px 25px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; }
-‎        .btn-claim:disabled { background: #222; color: #555; cursor: not-allowed; }
-‎
-‎        @media (max-width: 768px) { .stats-row, .bottom-grid { grid-template-columns: 1fr; } }
-‎    </style>
-‎</head>
-‎<body>
-‎
-‎    <div id="overlay" onclick="toggleSidebar()"></div>
-‎
-‎    <div id="sidebar" class="sidebar">
-‎        <div style="padding:40px 30px; font-family:'Orbitron'; font-weight:bold; font-size:22px; color:var(--primary);">LAST CHAIN</div>
-‎        <div class="menu-item active-tab" onclick="switchTab('dashboard-view', 'DASHBOARD')">🏠 Dashboard</div>
-‎        <div class="menu-item" onclick="switchTab('tasks-view', 'MISSIONS')">🎯 Missions</div>
-‎        <div class="logout-btn" onclick="logout()">🚪 Logout User</div>
-‎    </div>
-‎
-‎    <div id="app-container" class="hidden">
-‎        <header>
-‎            <div onclick="toggleSidebar()" style="cursor:pointer; font-size:24px;">☰</div>
-‎            <div id="page-title">DASHBOARD</div>
-‎            <div class="header-right">
-‎                <div class="wallet-box">
-‎                    <div class="points-display"><span id="header-pts">0</span> LAST</div>
-‎                    <div class="wallet-container">
-‎                        <button id="btn-wallet" class="wallet-btn" onclick="handleWalletClick()">Connect Wallet</button>
-‎                        <div id="wallet-menu" class="disconnect-dropdown">
-‎                            <button onclick="disconnectWallet()">Disconnect</button>
-‎                        </div>
-‎                    </div>
-‎                </div>
-‎            </div>
-‎        </header>
-‎
-‎        <main class="main-content">
-‎            <div id="dashboard-view" class="tab-content">
-‎                <div class="stats-row">
-‎                    <div class="stat-card"><p>Streak</p><h2 id="s-val">0 Days</h2></div>
-‎                    <div class="stat-card"><p>Today Points</p><h2 id="t-pts">0</h2></div>
-‎                    <div class="stat-card"><p>Level</p><h2>BRONZE</h2></div>
-‎                </div>
-‎                <div class="progress-box">
-‎                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#555;">
-‎                        <span>Level Progress</span><span id="p-txt">0/5000</span>
-‎                    </div>
-‎                    <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
-‎                </div>
-‎                <div class="bottom-grid">
-‎                    <div class="tall-box"><h4>TASK HISTORY</h4><div id="history-list"></div></div>
-‎                    <div class="tall-box">
-‎                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-‎                            <h4 style="margin:0; border:0;">LABORHOOD</h4>
-‎                            <span id="my-rank" style="color:var(--primary); font-size:11px; font-weight:bold;">#--</span>
-‎                        </div>
-‎                        <div id="leaderboard"></div>
-‎                    </div>
-‎                </div>
-‎            </div>
-‎
-‎            <div id="tasks-view" class="tab-content hidden">
-‎                <div class="mission-card">
-‎                    <div><h3>Daily Check-in</h3><p style="color:#555; font-size:12px;">Claim +100 LAST tokens</p></div>
-‎                    <button id="c-btn" class="btn-claim" onclick="claimDaily()">Claim</button>
-‎                </div>
-‎            </div>
-‎        </main>
-‎    </div>
-‎
-‎    <div id="auth-view" style="height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-‎        <h1 style="font-family:'Orbitron'; color:var(--primary); letter-spacing:10px;">LAST CHAIN</h1>
-‎        <button onclick="login()" class="btn-claim" style="margin-top:30px; padding:15px 40px; border-radius:30px;">Login with Google</button>
-‎    </div>
-‎
-‎    <script>
-‎        const S_URL = "https://pkqpcxqwhzuuooovqkvc.supabase.co";
-‎        const S_KEY = "sb_publishable_4nApSgj0pwrInFkUYx14_A_sM2AixLY";
-‎        const _supabase = supabase.createClient(S_URL, S_KEY);
-‎        let user = null;
-‎
-‎        async function login() { await _supabase.auth.signInWithOAuth({ provider: 'google' }); }
-‎
-‎        async function init() {
-‎            const { data: { session } } = await _supabase.auth.getSession();
-‎            if (session) {
-‎                await fetchUser(session.user.id);
-‎                fetchHistory();
-‎                fetchLeaderboard();
-‎            }
-‎        }
-‎
-‎        async function fetchUser(id) {
-‎            let { data: profile } = await _supabase.from('profiles').select('*').eq('id', id).single();
-‎            if (!profile) {
-‎                const { data } = await _supabase.from('profiles').insert([{ id, balance: 0 }]).select().single();
-‎                profile = data;
-‎            }
-‎            user = profile;
-‎            updateUI();
-‎        }
-‎
-‎        function updateUI() {
-‎            document.getElementById('auth-view').classList.add('hidden');
-‎            document.getElementById('app-container').classList.remove('hidden');
-‎
-‎            document.getElementById('header-pts').innerText = user.balance;
-‎            document.getElementById('s-val').innerText = (user.streak || 0) + " Days";
-‎            document.getElementById('t-pts').innerText = (user.today_points || 0);
-‎
-‎            const per = Math.min((user.balance / 5000) * 100, 100);
-‎            document.getElementById('bar').style.width = per + "%";
-‎            document.getElementById('p-txt').innerText = `${user.balance}/5000`;
-‎
-‎            const wBtn = document.getElementById('btn-wallet');
-‎            if (user.wallet_address) {
-‎                wBtn.innerText = user.wallet_address.substring(0,6) + "..." + user.wallet_address.slice(-4);
-‎                wBtn.classList.add('connected');
-‎            } else {
-‎                wBtn.innerText = "Connect Wallet";
-‎                wBtn.classList.remove('connected');
-‎            }
-‎
-‎            if (user.last_checkin) {
-‎                const isLocked = (Date.now() - new Date(user.last_checkin).getTime()) < 86400000;
-‎                document.getElementById('c-btn').disabled = isLocked;
-‎                if(isLocked) document.getElementById('c-btn').innerText = "Locked";
-‎            }
-‎        }
-‎
-‎        function handleWalletClick() {
-‎            if (user.wallet_address) {
-‎                const menu = document.getElementById('wallet-menu');
-‎                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-‎            } else { connectWallet(); }
-‎        }
-‎
-‎        async function connectWallet() {
-‎            if (!window.ethereum) return alert("Install MetaMask!");
-‎            try {
-‎                // Fix: Force MetaMask to show account selection even after disconnect
-‎                await window.ethereum.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
-‎                
-‎                const provider = new ethers.providers.Web3Provider(window.ethereum);
-‎                const accounts = await provider.send("eth_requestAccounts", []);
-‎                const wallet = accounts[0];
-‎
-‎                // Added: Confirmation Message Pop-up
-‎                const signer = provider.getSigner();
-‎                const msg = "Confirm connection to Last Chain Ecosystem";
-‎                await signer.signMessage(msg);
-‎
-‎                await _supabase.from('profiles').update({ wallet_address: wallet }).eq('id', user.id);
-‎                user.wallet_address = wallet;
-‎                updateUI();
-‎            } catch (e) { console.log("User cancelled"); }
-‎        }
-‎
-‎        async function disconnectWallet() {
-‎            await _supabase.from('profiles').update({ wallet_address: null }).eq('id', user.id);
-‎            user.wallet_address = null;
-‎            document.getElementById('wallet-menu').style.display = 'none';
-‎            updateUI();
-‎        }
-‎
-‎        function toggleSidebar() {
-‎            document.getElementById('sidebar').classList.toggle('active');
-‎            document.getElementById('overlay').classList.toggle('active');
-‎        }
-‎
-‎        function switchTab(id, title) {
-‎            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-‎            document.getElementById(id).classList.remove('hidden');
-‎            document.getElementById('page-title').innerText = title;
-‎            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active-tab'));
-‎            toggleSidebar();
-‎        }
-‎
-‎        async function claimDaily() {
-‎            const { error } = await _supabase.from('profiles').update({ 
-‎                balance: user.balance + 100, 
-‎                streak: (user.streak || 0) + 1,
-‎                last_checkin: new Date() 
-‎            }).eq('id', user.id);
-‎            if(!error) {
-‎                await _supabase.from('task_history').insert([{ user_id: user.id, task_name: 'Daily Check-in', points: 100 }]);
-‎                fetchUser(user.id);
-‎                fetchHistory();
-‎            }
-‎        }
-‎
-‎        async function fetchHistory() {
-‎            const { data } = await _supabase.from('task_history').select('*').eq('user_id', user.id).order('completed_at', { ascending: false });
-‎            const list = document.getElementById('history-list');
-‎            list.innerHTML = data?.length ? data.map(h => `
-‎                <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #111; font-size:12px;">
-‎                    <span><b>${h.task_name}</b><br><small style="color:#444">${new Date(h.completed_at).toLocaleString()}</small></span>
-‎                    <span style="color:var(--primary)">+${h.points}</span>
-‎                </div>
-‎            `).join('') : 'No tasks yet';
-‎        }
-‎
-‎        async function fetchLeaderboard() {
-‎            const { data } = await _supabase.from('profiles').select('id, balance').order('balance', { ascending: false }).limit(5);
-‎            const list = document.getElementById('leaderboard');
-‎            list.innerHTML = data.map((u, i) => `
-‎                <div style="padding:10px; background:#080808; margin-bottom:8px; border-radius:8px; display:flex; justify-content:space-between; font-size:11px; ${u.id === user.id ? 'border:1px solid var(--primary)' : ''}">
-‎                    <span>#${i + 1} User...${u.id.slice(-4)}</span>
-‎                    <span style="color:var(--primary)">${u.balance}</span>
-‎                </div>
-‎            `).join('');
-‎            const { count } = await _supabase.from('profiles').select('*', { count: 'exact', head: true }).gt('balance', user.balance);
-‎            document.getElementById('my-rank').innerText = `#${(count || 0) + 1}`;
-‎        }
-‎
-‎        async function logout() { await _supabase.auth.signOut(); window.location.reload(); }
-‎        window.onload = init;
-‎    </script>
-‎</body>
-‎</html>
-‎
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Last Chain | Quantum Neural Mesh</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@700&family=Space+Mono&family=Inter:wght@300;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root { 
+            --neon-main: #00ffcc;
+            --neon-alt: #ff007a;
+            --bg-deep: #030305;
+            --matrix-glow: rgba(0, 255, 204, 0.15);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+        
+        body { 
+            background: var(--bg-deep); 
+            color: #fff; 
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        #particle-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; background: radial-gradient(circle at center, #0a0a12 0%, #030305 100%);
+        }
+
+        #cursor-dot {
+            width: 8px; height: 8px; background: var(--neon-main);
+            position: fixed; border-radius: 50%; pointer-events: none; z-index: 10000;
+        }
+        #cursor-outline {
+            width: 40px; height: 40px; border: 1px solid var(--neon-main);
+            position: fixed; border-radius: 50%; pointer-events: none; z-index: 9999;
+            transition: all 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .hidden { display: none !important; }
+
+        @keyframes rotate-border {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .rotating-border-box {
+            position: relative;
+            padding: 2px;
+            overflow: hidden;
+            border-radius: 40px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .rotating-border-box::before {
+            content: '';
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            background: conic-gradient(transparent, transparent, transparent, var(--neon-main));
+            top: -25%;
+            left: -25%;
+            animation: rotate-border 4s linear infinite;
+        }
+
+        .inner-content {
+            position: relative;
+            background: #050505;
+            border-radius: 38px;
+            z-index: 1;
+        }
+
+        .rotating-wallet-box {
+            position: relative;
+            padding: 2px;
+            border-radius: 15px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.1);
+        }
+        .rotating-wallet-box::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(transparent, var(--neon-main), transparent);
+            top: -50%;
+            left: -50%;
+            animation: rotate-border 3s linear infinite;
+        }
+
+        .sidebar { 
+            position: fixed; left: -300px; width: 280px; height: 95vh; top: 2.5vh;
+            background: rgba(5, 5, 10, 0.8); backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 30px;
+            transition: 0.8s cubic-bezier(0.8, 0, 0.2, 1); z-index: 1100; margin-left: 20px;
+        }
+        .sidebar.active { left: 0; box-shadow: 0 0 50px rgba(0, 255, 204, 0.1); }
+
+        .menu-item { 
+            padding: 25px 35px; margin: 10px; border-radius: 15px; 
+            font-family: 'Syncopate'; font-size: 10px; color: #444; letter-spacing: 3px;
+            transition: 0.4s; position: relative; overflow: hidden;
+            cursor: pointer;
+        }
+        .menu-item:hover, .active-tab { color: #fff; background: rgba(0, 255, 204, 0.05); }
+
+        header { display: flex; align-items: center; padding: 40px 60px; background: transparent; z-index: 1000; }
+        #page-title { font-family: 'Syncopate'; font-size: 12px; color: var(--neon-main); text-shadow: 0 0 10px var(--matrix-glow); }
+
+        .wallet-inner { background: #050505; padding: 10px 20px; border-radius: 13px; z-index: 1; display: flex; align-items: center; gap: 15px; position: relative; }
+        .wallet-btn { background: var(--neon-main); color: #000; padding: 8px 20px; border-radius: 8px; font-weight: 900; border: none; font-size: 10px; transition: 0.3s; cursor: pointer; }
+
+        .main-content { padding: 40px 60px; max-width: 1400px; margin: 0 auto; }
+        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; margin-bottom: 50px; }
+        
+        .stat-card { 
+            background: rgba(15, 15, 25, 0.9); 
+            padding: 50px 40px; border-radius: 38px;
+        }
+        .stat-card h2 { font-family: 'Space Mono'; font-size: 40px; font-weight: 700; margin-top: 15px; }
+        .stat-card p { font-size: 10px; color: #555; letter-spacing: 4px; font-weight: 900; text-transform: uppercase; }
+
+        .progress-box { background: rgba(255,255,255,0.01); padding: 50px; border-radius: 40px; border: 2px solid var(--neon-main); margin-bottom: 50px; }
+        .bar-bg { background: #000; height: 10px; border-radius: 10px; margin-top: 30px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .bar-fill { height: 100%; background: var(--neon-main); width: 0%; transition: 3s ease-out; position: relative; box-shadow: 0 0 20px var(--neon-main); }
+
+        .btn-claim { background: #fff; color: #000; padding: 22px 50px; border-radius: 15px; font-weight: 900; border: none; font-size: 12px; letter-spacing: 2px; transition: 0.4s; text-transform: uppercase; cursor: pointer; }
+        .btn-claim:hover:not(:disabled) { background: var(--neon-main); box-shadow: 0 0 30px rgba(0,255,204,0.3); }
+
+        .ref-row { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+        .auth-logo { 
+            font-family: 'Syncopate'; font-size: 10vw; font-weight: 700; color: #fff; 
+            letter-spacing: -5px; line-height: 0.8; 
+            background: linear-gradient(45deg, #fff, var(--neon-main), var(--neon-alt));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="particle-canvas"></canvas>
+    <div id="cursor-dot"></div>
+    <div id="cursor-outline"></div>
+
+    <div id="sidebar" class="sidebar">
+        <div style="padding:60px 40px; font-family:'Syncopate'; font-size:18px; color:var(--neon-main);">L.CHAIN</div>
+        <div class="menu-item active-tab" onclick="switchTab('dashboard-view', 'DASHBOARD')">DASHBOARD</div>
+        <div class="menu-item" onclick="switchTab('tasks-view', 'MISSIONS')">MISSIONS</div>
+        <div style="position:absolute; bottom:50px; left:40px; color:var(--neon-alt); font-weight:bold; font-size:12px; cursor:pointer;" onclick="logout()">LOGOUT</div>
+    </div>
+
+    <div id="app-container" class="hidden">
+        <header>
+            <div onclick="toggleSidebar()" style="cursor:pointer; font-size:20px; color:var(--neon-main); font-family: 'Syncopate';">[MENU]</div>
+            <div id="page-title" style="margin-left: 30px;">DASHBOARD</div>
+            <div style="margin-left:auto;">
+                <div class="rotating-wallet-box">
+                    <div class="wallet-inner">
+                        <div class="points-display" style="font-family: 'Space Mono'; font-weight: bold; color: #fff;"><span id="header-pts">0</span> LAST</div>
+                        <button id="btn-wallet" class="wallet-btn" onclick="handleWalletClick()">CONNECT</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div id="dashboard-view" class="tab-content">
+                <div class="stats-row">
+                    <div class="rotating-border-box"><div class="inner-content stat-card"><p>Daily Streak</p><h2 id="s-val">0d</h2></div></div>
+                    <div class="rotating-border-box"><div class="inner-content stat-card"><p>Today Points</p><h2 id="t-pts">0</h2></div></div>
+                    <div class="rotating-border-box"><div class="inner-content stat-card"><p>Level Status</p><h2>BRONZE</h2></div></div>
+                </div>
+
+                <div class="progress-box">
+                    <div style="display:flex; justify-content:space-between; font-size:10px; font-weight:900; color:var(--neon-main); font-family: 'Space Mono';">
+                        <span>LAST CHAIN NETWORK PROGRESS</span><span id="p-txt">0/5000</span>
+                    </div>
+                    <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:40px;">
+                    <div class="rotating-border-box">
+                        <div class="inner-content stat-card" style="text-align:left;">
+                            <p style="margin-bottom:40px;">HISTORY</p>
+                            <div id="history-list"></div>
+                        </div>
+                    </div>
+                    <div class="rotating-border-box">
+                        <div class="inner-content stat-card" style="text-align:left;">
+                            <p style="margin-bottom:40px;">LABORHOOD <span id="my-rank" style="float:right; color:var(--neon-main);">#--</span></p>
+                            <div id="leaderboard"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tasks-view" class="tab-content hidden">
+                <div class="rotating-border-box" style="margin-bottom:40px;">
+                    <div class="inner-content stat-card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h2 style="font-size: 24px;">Daily Check-in</h2>
+                            <p id="claim-timer" style="color:var(--neon-main); margin-top:10px; font-family: 'Space Mono'; font-size: 11px;">CONNECT WALLET TO START</p>
+                        </div>
+                        <button id="c-btn" class="btn-claim" onclick="claimDaily()" disabled>LOCKED</button>
+                    </div>
+                </div>
+
+                <div class="rotating-border-box">
+                    <div class="inner-content stat-card" style="text-align:left;">
+                        <p style="margin-bottom:30px;">NETWORK EXPANSION SYSTEM</p>
+                        <div class="ref-row">
+                            <span>REWARD PER NODE</span>
+                            <span style="color:var(--neon-main); font-family: 'Syncopate'; font-size: 10px;">+200 LAST</span>
+                        </div>
+                        <div class="ref-row">
+                            <span>TOTAL NODES INVITED</span>
+                            <span id="ref-count" style="color:var(--neon-alt); font-weight:900; font-family: 'Space Mono';">0 NODES</span>
+                        </div>
+                        <div class="ref-row" style="border:none; padding-top:30px;">
+                            <span style="font-size:11px; color:#555;">INVITE LINK:</span>
+                            <button class="btn-claim" onclick="copyRefLink()" style="padding:15px 30px; font-size:10px;">COPY QUANTUM LINK</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="auth-view" style="height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+        <h1 class="auth-logo">LAST<br>CHAIN</h1>
+        <button onclick="login()" class="btn-claim" style="margin-top:60px;">CONTINUE WITH GOOGLE</button>
+    </div>
+
+    <script>
+        // Particles Background
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2;
+                this.speedX = Math.random() * 1 - 0.5;
+                this.speedY = Math.random() * 1 - 0.5;
+            }
+            update() {
+                this.x += this.speedX; this.y += this.speedY;
+                if (this.x > canvas.width) this.x = 0; if (this.x < 0) this.x = canvas.width;
+                if (this.y > canvas.height) this.y = 0; if (this.y < 0) this.y = canvas.height;
+            }
+            draw() {
+                ctx.fillStyle = 'rgba(0, 255, 204, 0.5)';
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
+        function initParticles() { for (let i = 0; i < 100; i++) particles.push(new Particle()); }
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, i) => {
+                p.update(); p.draw();
+                for (let j = i; j < particles.length; j++) {
+                    const dx = p.x - particles[j].x;
+                    const dy = p.y - particles[j].y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 100) {
+                        ctx.strokeStyle = `rgba(0, 255, 204, ${1 - dist/100})`;
+                        ctx.lineWidth = 0.5; ctx.beginPath();
+                        ctx.moveTo(p.x, p.y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
+                    }
+                }
+            });
+            requestAnimationFrame(animate);
+        }
+        initParticles(); animate();
+
+        // Custom Cursor
+        window.addEventListener('mousemove', (e) => { 
+            document.getElementById('cursor-dot').style.left = e.x + 'px';
+            document.getElementById('cursor-dot').style.top = e.y + 'px';
+            document.getElementById('cursor-outline').style.left = (e.x - 16) + 'px';
+            document.getElementById('cursor-outline').style.top = (e.y - 16) + 'px';
+        });
+
+        // Supabase Setup
+        const S_URL = "https://pkqpcxqwhzuuooovqkvc.supabase.co";
+        const S_KEY = "sb_publishable_4nApSgj0pwrInFkUYx14_A_sM2AixLY";
+        const _supabase = supabase.createClient(S_URL, S_KEY);
+        let user = null;
+
+        async function login() { await _supabase.auth.signInWithOAuth({ provider: 'google' }); }
+
+        async function init() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) {
+                const params = new URLSearchParams(window.location.search);
+                await fetchUser(session.user.id, params.get('ref'));
+                fetchHistory(); fetchLeaderboard();
+                setInterval(updateCountdown, 1000);
+            }
+        }
+
+        async function fetchUser(id, rid) {
+            let { data: p } = await _supabase.from('profiles').select('*').eq('id', id).single();
+            if (!p) {
+                const { data } = await _supabase.from('profiles').insert([{ id, balance: 0, referred_by: rid }]).select().single();
+                p = data;
+                if (rid && rid !== id) await rewardReferrer(rid);
+            }
+            user = p; updateUI(); fetchRefCount();
+        }
+
+        async function rewardReferrer(rid) {
+            const { data: ref } = await _supabase.from('profiles').select('balance').eq('id', rid).single();
+            if(ref) {
+                await _supabase.from('profiles').update({ balance: ref.balance + 200 }).eq('id', rid);
+                await _supabase.from('task_history').insert([{ user_id: rid, task_name: 'Referral Bonus', points: 200 }]);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('auth-view').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('header-pts').innerText = user.balance;
+            document.getElementById('s-val').innerText = (user.streak || 0) + "d";
+            document.getElementById('p-txt').innerText = `${user.balance}/5000`;
+            document.getElementById('bar').style.width = Math.min((user.balance/5000)*100, 100) + "%";
+            
+            const b = document.getElementById('btn-wallet');
+            if (user.wallet_address) {
+                b.innerText = user.wallet_address.substring(0,4)+"..."+user.wallet_address.slice(-3);
+                b.style.background = "var(--neon-alt)";
+                checkClaimStatus();
+            } else {
+                b.innerText = "CONNECT";
+                b.style.background = "var(--neon-main)";
+                document.getElementById('c-btn').disabled = true;
+                document.getElementById('claim-timer').innerText = "CONNECT WALLET TO START";
+            }
+        }
+
+        // --- UPDATED WALLET LOGIC (CONNECT -> DELAY -> CONFIRM) ---
+        async function handleWalletClick() {
+            if (user.wallet_address) {
+                if (confirm("Disconnect Quantum Node?")) {
+                    const { error } = await _supabase.from('profiles').update({ wallet_address: null }).eq('id', user.id);
+                    if (!error) { user.wallet_address = null; updateUI(); }
+                }
+                return;
+            }
+
+            if (window.ethereum) {
+                try {
+                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    
+                    // 1. Pehle Connect Pop-up
+                    const accounts = await provider.send("eth_requestAccounts", []);
+                    const address = accounts[0];
+                    
+                    // Button state change for feedback
+                    const b = document.getElementById('btn-wallet');
+                    b.innerText = "SYNCING...";
+                    b.style.background = "#fff";
+
+                    // 2. 1.8 seconds ka delay (Connect ke bad confirm aye)
+                    setTimeout(async () => {
+                        try {
+                            const signer = provider.getSigner();
+                            const message = `LAST CHAIN SYSTEM ACCESS\n\nNode ID: ${user.id.slice(0,8)}\nAction: Sync Wallet\n\nPlease confirm this connection to link your node.`;
+                            
+                            // 3. Phir Confirm (Sign) Pop-up khulega
+                            await signer.signMessage(message);
+
+                            // Database update after successful confirmation
+                            const { error } = await _supabase.from('profiles').update({ wallet_address: address }).eq('id', user.id);
+                            if (!error) {
+                                user.wallet_address = address;
+                                updateUI();
+                                alert("Node Connected and Verified!");
+                            }
+                        } catch (signErr) {
+                            console.log("Confirmation Cancelled");
+                            updateUI(); // Reset UI on cancel
+                        }
+                    }, 1800);
+
+                } catch (err) {
+                    console.log("Connection Process Cancelled");
+                }
+            } else {
+                alert("MetaMask not found!");
+            }
+        }
+
+        async function claimDaily() {
+            const { error } = await _supabase.from('profiles').update({ balance: user.balance + 100, str
